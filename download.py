@@ -51,7 +51,11 @@ if __name__ == '__main__':
 
         wiz_groups = []
         for it in wiz.get_groups().get('result'):
-            wiz_groups.append(WizGroup(it['id'], it['name'], it['kbGuid'], it['kbServer']))
+            wiz_group = WizGroup(
+                it['id'], it['name'],
+                it['kbGuid'], it['kbServer']
+            )
+            wiz_groups.append(wiz_group)
         print(wiz_groups)
 
         notes += get_personal_notes()
