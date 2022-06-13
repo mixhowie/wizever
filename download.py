@@ -1,61 +1,108 @@
 # coding:utf8
+from lib2to3.pgen2 import token
+import logging
 import os
 from collections import namedtuple
+import pathlib
+import requests
 
 from wiznote import WizNote
 
+logging.basicConfig(level=logging.INFO,  format='%(asctime)s [%(levelname)-8s] %(message)s')
 
-class MyWizNote(WizNote):
-    def get(self, url, **params):
-        return self.session.get(self.url('{AS_URL}' + url), params=params)
-
-    def get_json(self, url, **params):
-        return self.get(url, **params).json()
-
-    def get_bizs(self):
-        return self.get_json('/as/user/bizs')
-
-    def get_groups(self) -> dict:
-        return self.get_json('/as/user/groups')
-
-    def get_kbs(self):
-        return self.get_json('/as/user/kb/info/all')
-
-    def get_single_kb_info(self, kb_guid):
-        return self.get_json(f'/as/user/groups/{kb_guid}')
+AS_URL = 'https://as.wiz.cn'
 
 
-WizGroup = namedtuple('WizGroup', 'id, name, kb_guid, kb_server')
+class WizNoteDownloader():
+    def __init__(self, username, password, data_path):
+        self.username = username
+        self.password = password
+        self.data_path = pathlib.Path(data_path)
 
+    def run(self):
+        self._recreate_data_path()
+        self._download()
 
-class Note(object):
-    tags = []
-    content = None
+    def _recreate_data_path(self):
+        logging.info('recreate data path %s', self.data_path)
+        for filename in os.listdir(self.data_path):
+            os.remove(self.data_path / filename)
+        self.data_path.rmdir()
+        self.data_path.mkdir(exist_ok=True)
 
+    def _download(self):
+        self._login()
+        for folder in self._crawl_top_folders():
+            self._crawl_folder_notes(folder)
 
-def get_personal_notes():
-    pass
+    def _login(self):
+        """
+        登录
+        """
+        logging.info('login, username: %s', username)
 
+        url = AS_URL + '/as/user/login'
+        data = {
+            'userId': self.username,
+            'password': self.password
+        }
+        response = requests.post(url, data)
+        payload = response.json()
 
-def get_group_notes(guid):
-    pass
+        if payload['returnCode'] != 200:
+            logging.error('login failure: %s', payload)
+            raise
+
+        self.token = payload['result']['token']
+        self.user_guid = payload['result']['userGuid']
+        self.kb_guid = payload['result']['kbGuid']
+        self.kb_server = payload['result']['kbServer']
+
+        logging.info('login success, token: %s, userGuid: %s', self.token, self.user_guid)
+
+    def _crawl_top_folders(self):
+        """
+        爬取顶层文件夹
+        """
+        # TODO
+        url = self.kb_server + '/ks/category/all/' + self.kb_guid
+        payload = self._get(url).json()
+        if payload['returnCode'] != 200:
+            logging.error('request failure: %s', payload)
+            raise
+
+        return payload['result']
+
+    def _crawl_folder_notes(self, folder):
+        """
+        爬取文件夹下的笔记
+        """
+        # TODO
+        logging.info('crawl folder notes, folder: %s', folder)
+        self._download_note()
+
+    def _download_note(self):
+        """
+        下载笔记
+        """
+        logging.info('download note')
+
+    def _get(self, url, params=None):
+        headers = {
+            'User-Agent': 'PostmanRuntime/7.29.0',
+            'Accept': '*/*',
+            'Accept-Encoding': 'gzip, deflate, br',
+            'Connection': 'keep-alive',
+            'X-Wiz-Token': self.token
+        }
+        return requests.get(url, params, headers=headers)
 
 
 if __name__ == '__main__':
     username = os.getenv('WIZEVER_WIZ_USERNAME')
     password = os.getenv('WIZEVER_WIZ_PASSWORD')
+    data_path = os.getenv('WIZEVER_DATA_PATH')
     assert username and password
 
-    with MyWizNote(username=username, password=password) as wiz:
-        notes = []
-
-        wiz_groups = []
-        for it in wiz.get_groups().get('result'):
-            wiz_group = WizGroup(
-                it['id'], it['name'],
-                it['kbGuid'], it['kbServer']
-            )
-            wiz_groups.append(wiz_group)
-        print(wiz_groups)
-
-        notes += get_personal_notes()
+    downloader = WizNoteDownloader(username, password, data_path)
+    downloader.run()
