@@ -1,19 +1,17 @@
 # coding:utf8
-from lib2to3.pgen2 import token
+import json
 import logging
 import os
-from collections import namedtuple
 import pathlib
+
 import requests
 
-from wiznote import WizNote
-
-logging.basicConfig(level=logging.INFO,  format='%(asctime)s [%(levelname)-8s] %(message)s')
+logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)-8s] %(message)s')
 
 AS_URL = 'https://as.wiz.cn'
 
 
-class WizNoteDownloader():
+class WizNoteDownloader:
     def __init__(self, username, password, data_path):
         self.username = username
         self.password = password
@@ -26,7 +24,7 @@ class WizNoteDownloader():
     def _recreate_data_path(self):
         logging.info('recreate data path %s', self.data_path)
         for filename in os.listdir(self.data_path):
-            os.remove(self.data_path / filename)
+            os.remove(self.data_path / str(filename))
         self.data_path.rmdir()
         self.data_path.mkdir(exist_ok=True)
 
@@ -79,13 +77,47 @@ class WizNoteDownloader():
         """
         # TODO
         logging.info('crawl folder notes, folder: %s', folder)
-        self._download_note()
+        url = self.kb_server + '/ks/note/list/category/' + self.kb_guid
+        params = {
+            'start': 0,
+            'count': 100,
+            'category': folder,
+            'orderBy': 'created',
+        }
+        response = self._get(url, params)
+        payload = response.json()
+        if payload['returnCode'] != 200:
+            logging.error('request folder note list failure: %s', payload)
+            raise
 
-    def _download_note(self):
+        for note_metadata in payload['result']:
+            self._download_note(note_metadata['docGuid'])
+
+    def _download_note(self, doc_guid):
         """
         下载笔记
         """
-        logging.info('download note')
+        logging.info('download note: %s', doc_guid)
+
+        url = self.kb_server + '/ks/note/download/' + self.kb_guid + '/' + doc_guid
+        params = {
+            'downloadInfo': 1,
+            'downloadData': 1,
+        }
+        response = self._get(url, params)
+        payload = response.json()
+        if payload['returnCode'] != 200:
+            logging.error('download note failure: %s', payload)
+            raise
+
+        category = payload['info']['category']
+        title = payload['info']['title']
+        file = self.data_path / category.strip('/') / title.strip('/')
+
+        logging.info('save note: %s', file)
+
+        file.parent.mkdir(parents=True, exist_ok=True)
+        file.write_text(json.dumps(payload, indent=4))
 
     def _get(self, url, params=None):
         headers = {
