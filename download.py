@@ -1,4 +1,5 @@
 # coding:utf8
+from concurrent.futures import ThreadPoolExecutor
 import json
 import logging
 import os
@@ -7,7 +8,7 @@ from time import time
 
 import requests
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)-8s] %(message)s')
+logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)-8s] %(threadName)s - %(message)s')
 
 AS_URL = 'https://as.wiz.cn'
 PATH_CONNECTOR = '#__#'
@@ -105,8 +106,10 @@ class WizNoteDownloader:
                 break
             times += 1
 
+        executor = ThreadPoolExecutor(max_workers=10)
         for note_metadata in all_folder_notes:
-            self._download_note(note_metadata['docGuid'])
+            executor.submit(self._download_note, note_metadata['docGuid'])
+        executor.shutdown()
 
     def _download_note(self, doc_guid):
         """
