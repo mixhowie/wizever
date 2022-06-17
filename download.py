@@ -4,7 +4,6 @@ import json
 import logging
 import os
 import pathlib
-from time import time
 
 import requests
 
