@@ -1,12 +1,6 @@
-# coding: utf8
-
-
 import abc
-from ast import arg
-from functools import wraps
 import logging
-
-logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)-8s] %(threadName)s - %(message)s')
+from functools import wraps
 
 importers = {}
 
@@ -18,7 +12,9 @@ def importer(name: str):
         @wraps(clazz)
         def wrapper(*args, **kwargs):
             clazz(*args, **kwargs)
+
         return wrapper
+
     return inner
 
 

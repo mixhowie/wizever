@@ -1,14 +1,10 @@
-# coding: utf8
-
-#!/bin/env python
-# coding: 8tf8
-
-
-from argparse import ArgumentError
+import logging
 import sys
+from argparse import ArgumentError
 
 from lib.importer import importers
 
+logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)-8s] %(threadName)s - %(message)s')
 
 if __name__ == '__main__':
     if len(sys.argv) != 2:
