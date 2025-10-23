@@ -1,1 +1,1 @@
-Transfer wiznote documents to Evernote.
+Sync notes from wiz to evernote.
